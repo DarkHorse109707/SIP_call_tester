@@ -19,18 +19,18 @@ const reduxMiddlewares =
 	thunk
 ];
 
-if (process.env.NODE_ENV !== 'production')
-{
-	const reduxLogger = createLogger(
-		{
-			duration  : true,
-			timestamp : false,
-			level     : 'log',
-			logErrors : true
-		});
+// if (process.env.NODE_ENV !== 'production')
+// {
+// 	const reduxLogger = createLogger(
+// 		{
+// 			duration  : true,
+// 			timestamp : false,
+// 			level     : 'log',
+// 			logErrors : true
+// 		});
 
-	reduxMiddlewares.push(reduxLogger);
-}
+// 	reduxMiddlewares.push(reduxLogger);
+// }
 
 const pReducer = persistReducer(persistConfig, rootReducer);
 

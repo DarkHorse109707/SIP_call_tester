@@ -27,8 +27,8 @@
   "scripts": {
     "analyze-main": "source-map-explorer build/static/js/main.*",
     "analyze-first": "source-map-explorer build/static/js/1.*",
-    "start": "HTTPS=true PORT=4443 react-scripts start",
-    "build": "react-scripts build",
+    "start": "NODE_OPTIONS='--openssl-legacy-provider' HTTPS=true PORT=4443 react-scripts start",
+    "build": "NODE_OPTIONS='--openssl-legacy-provider' react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },

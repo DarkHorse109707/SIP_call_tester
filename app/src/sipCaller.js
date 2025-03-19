@@ -8,19 +8,16 @@ const logger = new Logger('SipCaller');
 
 let store;
 
-export default class SipCaller
-{
+export default class SipCaller {
 	/**
 	 * @param  {Object} data
 	 * @param  {Object} data.store - The Redux store.
 	 */
-	static init(data)
-	{
+	static init(data) {
 		store = data.store;
 	}
 
-	constructor()
-	{
+	constructor() {
 		logger.debug('constructor()');
 
 		this._ua = null;
@@ -28,8 +25,7 @@ export default class SipCaller
 		this._init();
 	}
 
-	_init()
-	{
+	_init() {
 		logger.debug('_init()');
 
 		const { autoRegister } = store.getState().user;
@@ -38,8 +34,7 @@ export default class SipCaller
 			this.register();
 	}
 
-	register()
-	{
+	register() {
 		logger.debug('register()');
 
 		const {
@@ -55,30 +50,29 @@ export default class SipCaller
 		store.dispatch(stateActions.setRegisterInProgress());
 
 		this._ua = new sip.UA({
-			uri              : sipUri,
-			password         : password,
-			displayName      : displayName,
-			transportOptions : {
-				wsServers : [ outboundProxy ],
-				traceSip  : true
+			uri: sipUri,
+			password: password,
+			displayName: displayName,
+			transportOptions: {
+				wsServers: [outboundProxy],
+				traceSip: true
 			},
-			sessionDescriptionHandlerFactoryOptions : {
-				peerConnectionOptions : {
-					rtcConfiguration : {
+			sessionDescriptionHandlerFactoryOptions: {
+				peerConnectionOptions: {
+					rtcConfiguration: {
 						iceServers
 					}
 				}
 			}
 		});
 
-		this._ua.on('registered', () =>
-		{
+		this._ua.on('registered', () => {
 			logger.debug('Registered');
 
 			store.dispatch(requestActions.notify(
 				{
-					type : 'success',
-					text : 'Successfully registered.'
+					type: 'success',
+					text: 'Successfully registered.'
 				})
 			);
 
@@ -86,14 +80,13 @@ export default class SipCaller
 			store.dispatch(stateActions.setRegistered({ registered: true }));
 		});
 
-		this._ua.on('registrationFailed', (response, cause) =>
-		{
+		this._ua.on('registrationFailed', (response, cause) => {
 			logger.debug('Registration failed [cause: %s]', cause);
 
 			store.dispatch(requestActions.notify(
 				{
-					type : 'error',
-					text : `Registration failed: ${cause}`
+					type: 'error',
+					text: `Registration failed: ${cause}`
 				})
 			);
 
@@ -101,13 +94,12 @@ export default class SipCaller
 			store.dispatch(stateActions.setRegistered({ registered: false }));
 		});
 
-		this._ua.on('unregistered', (response, cause) =>
-		{
+		this._ua.on('unregistered', (response, cause) => {
 			logger.debug('Unregistered [cause: %s]', cause);
 
 			store.dispatch(requestActions.notify(
 				{
-					text : `Unregistered: ${cause}`
+					text: `Unregistered: ${cause}`
 				})
 			);
 
@@ -115,13 +107,12 @@ export default class SipCaller
 			store.dispatch(stateActions.setRegistered({ registered: false }));
 		});
 
-		this._ua.on('invite', (sipSession) =>
-		{
+		this._ua.on('invite', (sipSession) => {
 			logger.debug('Incoming invite [sipSession: %o]', sipSession);
 
 			store.dispatch(requestActions.notify(
 				{
-					text : `Incoming call from: ${sipSession.remoteIdentity.uri.user}`
+					text: `Incoming call from: ${sipSession.remoteIdentity.uri.user}`
 				})
 			);
 
@@ -129,21 +120,18 @@ export default class SipCaller
 		});
 	}
 
-	unRegister()
-	{
+	unRegister() {
 		logger.debug('unRegister()');
 
 		this._ua.unregister();
 	}
 
-	_handleSession(sipSession, direction)
-	{
+	_handleSession(sipSession, direction) {
 		logger.debug('_handleSession() [sipSession: %o]', sipSession);
 
 		const startTime = Date.now();
 
-		sipSession.on('trackAdded', () =>
-		{
+		sipSession.on('trackAdded', () => {
 			logger.debug('SipSession trackAdded [sipSession: %o]', sipSession);
 
 			const pc = sipSession.sessionDescriptionHandler.peerConnection;
@@ -151,8 +139,7 @@ export default class SipCaller
 			// Gets remote tracks
 			const remoteStream = new MediaStream();
 
-			pc.getReceivers().forEach((receiver) =>
-			{
+			pc.getReceivers().forEach((receiver) => {
 				if (receiver.track)
 					remoteStream.addTrack(receiver.track);
 			});
@@ -162,8 +149,7 @@ export default class SipCaller
 			// Gets local tracks
 			const localStream = new MediaStream();
 
-			pc.getSenders().forEach((sender) =>
-			{
+			pc.getSenders().forEach((sender) => {
 				if (sender.track)
 					localStream.addTrack(sender.track);
 			});
@@ -171,110 +157,96 @@ export default class SipCaller
 			store.dispatch(stateActions.addLocalStream({ sipSession, localStream }));
 		});
 
-		sipSession.on('replaced', (newSipSession) =>
-		{
+		sipSession.on('replaced', (newSipSession) => {
 			logger.debug('SipSession replaced [oldSipSession: %o, newSipSession: %o]', sipSession, newSipSession);
 
 			this._handleSession(newSipSession, direction);
 		});
 
-		sipSession.on('referRequested', (context) =>
-		{
+		sipSession.on('referRequested', (context) => {
 			// Outgoing REFER
-			if (context instanceof sip.ReferClientContext)
-			{
-				context.on('referRequestAccepted', () =>
-				{
+			if (context instanceof sip.ReferClientContext) {
+				context.on('referRequestAccepted', () => {
 					store.dispatch(
 						stateActions.setSessionState({
 							sipSession,
-							sessionState : sessionStates.REFER_REQUEST_ACCEPTED
+							sessionState: sessionStates.REFER_REQUEST_ACCEPTED
 						})
 					);
 				});
 
-				context.on('referRequestRejected', () =>
-				{
+				context.on('referRequestRejected', () => {
 					store.dispatch(
 						stateActions.setSessionState({
 							sipSession,
-							sessionState : sessionStates.REFER_REQUEST_REJECTED
+							sessionState: sessionStates.REFER_REQUEST_REJECTED
 						})
 					);
 				});
 			}
 
 			// Incoming REFER
-			if (context instanceof sip.ReferServerContext)
-			{
+			if (context instanceof sip.ReferServerContext) {
 				context.accept();
 			}
 		});
 
-		sipSession.on('directionChanged', () =>
-		{
+		sipSession.on('directionChanged', () => {
 			const newDirection = sipSession.sessionDescriptionHandler.getDirection();
 
-			if (newDirection === 'sendrecv')
-			{
+			if (newDirection === 'sendrecv') {
 				logger.debug('SipSession not on hold [sipSession: %o]', sipSession);
 			}
-			else
-			{
+			else {
 				logger.debug('SipSession on hold [sipSession: %o]', sipSession);
 			}
 		});
 
-		sipSession.on('progress', (response) =>
-		{
+		sipSession.on('progress', (response) => {
 			logger.debug('SipSession progress [response: %o, sipSession: %o]', response, sipSession);
 
 			store.dispatch(
 				stateActions.setSessionState({
 					sipSession,
-					sessionState : sessionStates.PROGRESS
+					sessionState: sessionStates.PROGRESS
 				})
 			);
 		});
 
-		sipSession.on('accepted', (data) =>
-		{
+		sipSession.on('accepted', (data) => {
 			logger.debug('SipSession accepted [data: %o, sipSession: %o]', data, sipSession);
 
 			store.dispatch(
 				stateActions.setSessionState({
 					sipSession,
-					sessionState : sessionStates.ACCEPTED
+					sessionState: sessionStates.ACCEPTED
 				})
 			);
 		});
 
-		sipSession.on('bye', (request) =>
-		{
+		sipSession.on('bye', (request) => {
 			logger.debug('SipSession bye [request: %o, sipSession: %o]', request, sipSession);
 
 			store.dispatch(
 				stateActions.setSessionState({
 					sipSession,
-					sessionState : sessionStates.TERMINATED
+					sessionState: sessionStates.TERMINATED
 				})
 			);
 		});
 
-		sipSession.on('cancel', () =>
-		{
+		sipSession.on('cancel', () => {
 			logger.debug('SipSession canceled [sipSession: %o]', sipSession);
 
 			store.dispatch(
 				stateActions.setSessionState({
 					sipSession,
-					sessionState : sessionStates.CANCELED
+					sessionState: sessionStates.CANCELED
 				})
 			);
 		});
 
-		sipSession.on('rejected', (response, cause) =>
-		{
+		sipSession.on('rejected', (response, cause) => {
 			logger.debug(
 				'SipSession rejected [response: %o, cause: %s, sipSession: %o]',
 				response,
@@ -285,13 +257,12 @@ export default class SipCaller
 			store.dispatch(
 				stateActions.setSessionState({
 					sipSession,
-					sessionState : sessionStates.REJECTED
+					sessionState: sessionStates.REJECTED
 				})
 			);
 		});
 
-		sipSession.on('failed', (response, cause) =>
-		{
+		sipSession.on('failed', (response, cause) => {
 			logger.debug(
 				'SipSession failed [response: %o, cause: %s, sipSession: %o]',
 				response,
@@ -302,13 +273,12 @@ export default class SipCaller
 			store.dispatch(
 				stateActions.setSessionState({
 					sipSession,
-					sessionState : sessionStates.FAILED
+					sessionState: sessionStates.FAILED
 				})
 			);
 		});
 
-		sipSession.on('terminated', (message, cause) =>
-		{
+		sipSession.on('terminated', (message, cause) => {
 			logger.debug(
 				'SipSession terminated [message: %o, cause: %s, sipSession: %o]',
 				message,
@@ -318,14 +288,14 @@ export default class SipCaller
 
 			store.dispatch(requestActions.notify(
 				{
-					text : `Call terminated: ${sipSession.remoteIdentity.uri.user}`
+					text: `Call terminated: ${sipSession.remoteIdentity.uri.user}`
 				})
 			);
 
 			store.dispatch(
 				stateActions.setSessionState({
 					sipSession,
-					sessionState : sessionStates.TERMINATED
+					sessionState: sessionStates.TERMINATED
 				})
 			);
 
@@ -342,21 +312,18 @@ export default class SipCaller
 				})
 			);
 
-			setTimeout(() =>
-			{
+			setTimeout(() => {
 				logger.debug('SipSession removed [sipSession: %o]', sipSession);
 
 				store.dispatch(stateActions.removeSession({ sipSession }));
 
-				if (!store.getState().userStatus.currentSession)
-				{
+				if (!store.getState().userStatus.currentSession) {
 					const sessions = store.getState().sessions;
 
-					if (sessions)
-					{
+					if (sessions) {
 						store.dispatch(
 							stateActions.setCurrentSession({
-								currentSession : Object.keys(sessions)[0]
+								currentSession: Object.keys(sessions)[0]
 							})
 						);
 					}
@@ -367,8 +334,7 @@ export default class SipCaller
 		store.dispatch(stateActions.addSession({ sipSession, direction }));
 	}
 
-	accept(sipSession)
-	{
+	accept(sipSession) {
 		logger.debug('accept() [sipSession: %o]', sipSession);
 
 		const {
@@ -376,53 +342,66 @@ export default class SipCaller
 		} = store.getState().user;
 
 		sipSession.accept({
-			sessionDescriptionHandlerOptions :
+			sessionDescriptionHandlerOptions:
 			{
-				constraints :
+				constraints:
 				{
-					audio : true,
-					video : videoEnabled
+					audio: true,
+					video: videoEnabled
 				}
 			}
 		});
 	}
 
-	terminate(sipSession)
-	{
+	terminate(sipSession) {
 		logger.debug('terminate() [sipSession: %o]', sipSession);
 
 		sipSession.terminate();
 	}
 
-	invite(sipUri)
-	{
+	invite(sipUri) {
 		logger.debug('invite() [sipUri: %s]', sipUri);
-
-		const {
-			videoEnabled
-		} = store.getState().user;
-
 		const sipSession = this._ua.invite(sipUri, {
-			sessionDescriptionHandlerOptions :
+			sessionDescriptionHandlerOptions:
 			{
-				constraints :
+				constraints:
 				{
-					audio : true,
-					video : videoEnabled
-				}
+					audio: true,
+					video: false
+				},
+				// Prioritize PCMU and PCMA
+				peerConnectionOptions: {
+					rtcConfiguration: {
+						iceServers: window.iceServers || [
+							{ urls: "stun:stun.urgentroute.com:3478" },
+							{
+								urls: "turn:turn.urgentroute.com",
+								username: "urgentroute",
+								credential: "urgentroute789"
+							}
+						]
+					}
+				},
+				modifiers: [
+					function (description) {
+						// Reorder codecs to prioritize PCMU and PCMA
+						description.sdp = description.sdp.replace(/m=audio \d+ UDP\/TLS\/RTP\/SAVPF (.*)/, 'm=audio $1');
+						description.sdp = description.sdp.replace(/a=rtpmap:(\d+) PCMU\/8000/g, 'a=rtpmap:$1 PCMU/8000\na=fmtp:$1 annexb=yes');
+						description.sdp = description.sdp.replace(/a=rtpmap:(\d+) PCMA\/8000/g, 'a=rtpmap:$1 PCMA/8000\na=fmtp:$1 annexb=yes');
+						return Promise.resolve(description);
+					}
+				]
 			}
 		});
-
 		this._handleSession(sipSession, sessionStates.OUTGOING);
 		store.dispatch(
 			stateActions.setCurrentSession({
-				currentSession : sipSession.request.callId
+				currentSession: sipSession.request.callId
 			})
 		);
 	}
 
-	refer(sipSession, sipUri)
-	{
+	refer(sipSession, sipUri) {
 		logger.debug(
 			'refer() [sipSession: %o, sipUri: %s]',
 			sipSession,
@@ -432,8 +411,7 @@ export default class SipCaller
 		sipSession.refer(sipUri);
 	}
 
-	toggleMedia(sipSession, type, mute)
-	{
+	toggleMedia(sipSession, type, mute) {
 		logger.debug(
 			'toggleMedia() [sipSession: %o, type: %s, mute: %s]',
 			sipSession,
@@ -446,8 +424,7 @@ export default class SipCaller
 
 		if (!remoteStream) return;
 
-		if (type === 'audio')
-		{
+		if (type === 'audio') {
 			remoteStream.getAudioTracks()[0].enabled = !mute;
 
 			store.dispatch(
@@ -456,8 +433,7 @@ export default class SipCaller
 				})
 			);
 		}
-		else if (type === 'video')
-		{
+		else if (type === 'video') {
 			remoteStream.getVideoTracks()[0].enabled = !mute;
 
 			store.dispatch(
@@ -466,14 +442,12 @@ export default class SipCaller
 				})
 			);
 		}
-		else
-		{
+		else {
 			throw new Error('Unknown media type.');
 		}
 	}
 
-	toggleMyMedia(session, type, mute)
-	{
+	toggleMyMedia(session, type, mute) {
 		logger.debug(
 			'toggleMyMedia() [session: %o, type: %s, mute: %s]',
 			session,
@@ -481,16 +455,13 @@ export default class SipCaller
 			mute
 		);
 
-		if (type === 'audio')
-		{
+		if (type === 'audio') {
 			session.localStream.getAudioTracks()[0].enabled = !mute;
 		}
-		else if (type === 'video')
-		{
+		else if (type === 'video') {
 			session.localStream.getVideoTracks()[0].enabled = !mute;
 		}
-		else
-		{
+		else {
 			throw new Error('Unknown media type.');
 		}
 	}

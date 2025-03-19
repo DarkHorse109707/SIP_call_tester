@@ -4,5 +4,5 @@ config.*
 !config.example.js
 public/
 certs/
-
+package-lock.json
 *.log
